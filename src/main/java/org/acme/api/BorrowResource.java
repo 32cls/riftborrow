@@ -6,7 +6,9 @@ import org.acme.domain.Borrow;
 import org.acme.domain.User;
 import org.acme.dto.BorrowDto;
 
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -19,14 +21,17 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
 @Path("/borrows")
+@RolesAllowed("user")
 public class BorrowResource {
+
+    @Inject
+    SecurityIdentity identity;
 
     @POST
     @Transactional
-    @RolesAllowed("user")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response borrowCard(@Context SecurityContext ctx, List<String> cardIds){
-        User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
+    public Response borrowCard(List<String> cardIds){
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         List<Borrow> borrowings = Borrow.createBorrowings(cardIds, authenticatedUser);
         List<BorrowDto> dtos = Borrow.mapBorrowingsToDto(borrowings);
         return Response.ok(dtos).build();
@@ -35,10 +40,9 @@ public class BorrowResource {
     @PUT
     @Transactional
     @Path("/{id}")
-    @RolesAllowed("user")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response returnBorrow(@Context SecurityContext ctx, Long borrowId){
-        User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
+    public Response returnBorrow(Long borrowId){
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         Borrow borrow = Borrow.findById(borrowId);
         if (borrow.borrower.id != authenticatedUser.id) {
             return Response.status(Response.Status.FORBIDDEN).build();
@@ -50,9 +54,8 @@ public class BorrowResource {
 
     @GET
     @Transactional
-    @RolesAllowed("user")
     public Response listBorrowings(@Context SecurityContext ctx){
-        User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         List<Borrow> borrowings = Borrow.findByUserId(authenticatedUser);
         List<BorrowDto> dtos = Borrow.mapBorrowingsToDto(borrowings);
         return Response.ok(dtos).build();

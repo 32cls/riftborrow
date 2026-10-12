@@ -38,6 +38,11 @@ public class User extends PanacheEntity {
     @Username
     public String username;
 
+    @Column(unique=true)
+    public String discordId;
+
+    public String issuer;
+
     @Password
     public String password;
 
@@ -53,23 +58,38 @@ public class User extends PanacheEntity {
     public List<Card> borrowing;
 
     @JsonIgnore
-    public Point location;
+    private Point location;
 
-    public void setLocation(Coordinate coordinate) {
+    public Point getLocation() {
+		return location;
+	}
+
+    public void updateLocation(Coordinate coordinate) {
         GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), SRID);
         this.location = geometryFactory.createPoint(coordinate);
+        this.persist();
     }
 
-    public static User add(String username) {
+    public static User add(String issuer, String discordId, String username) {
         User user = new User();
+        user.issuer = issuer;
+        user.discordId = discordId;
         user.username = username;
         user.role = "user";
         user.persist();
         return user;
     }
 
-    public static User findByUsername(String username) {
-        return find("username", username).firstResult();
+    public static Long getOrCreate(String issuer, String discordId, String username) {
+        User existing = findByDiscordId(discordId);
+        if (existing == null){
+            existing = User.add(issuer, discordId, username);
+        }
+        return existing.id;
+    }
+
+    public static User findByDiscordId(String discordId) {
+        return find("discordId", discordId).firstResult();
     }
 
 }

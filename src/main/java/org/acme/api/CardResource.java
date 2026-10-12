@@ -9,15 +9,15 @@ import java.util.Scanner;
 import java.util.Set;
 
 import org.acme.domain.Card;
-import org.acme.domain.CardReference;
-import org.acme.domain.User;
 import org.acme.domain.Card.Language;
 import org.acme.domain.Card.Quality;
+import org.acme.domain.CardReference;
+import org.acme.domain.User;
 import org.acme.dto.BorrowableCardDto;
 import org.acme.input.CardInput;
 import org.jboss.resteasy.reactive.RestForm;
 
-import jakarta.annotation.security.PermitAll;
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -29,19 +29,20 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.SecurityContext;
 
+@RolesAllowed("user")
 @Path("/cards")
 public class CardResource {
 
     @Inject
     Validator validator;
 
+    @Inject
+    SecurityIdentity identity;
+
     @GET
-    @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
     public Response listCards() {
         List<Card> cards = Card.listAll();
@@ -50,18 +51,12 @@ public class CardResource {
 
     @POST
     @Transactional
-    @RolesAllowed("user")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response addCard(@Context SecurityContext ctx, CardInput cardInput) {
+    public Response addCard(CardInput cardInput) {
         Set<ConstraintViolation<CardInput>> violations = validator.validate(cardInput);
         if (violations.isEmpty()) {
-            User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
-            CardReference cardReference = CardReference.findByName(cardInput.name);
-            if (cardReference == null) {
-                return Response.status(Response.Status.NOT_FOUND).build();
-            }
-            Card card = new Card(cardInput.language, cardInput.quality, authenticatedUser, cardReference);
-            card.persist();
+            User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
+            Card card = Card.inputToCard(cardInput, authenticatedUser);
             return Response.created(URI.create("/cards/"+card.id)).build();
         } else {
             return Response.status(Response.Status.BAD_REQUEST).build();
@@ -70,11 +65,10 @@ public class CardResource {
 
     @POST
     @Transactional
-    @RolesAllowed("user")
     @Path("/list")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    public Response addCardList(@Context SecurityContext ctx, @RestForm("list") File file) {
-        User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
+    public Response addCardList(@RestForm("list") File file) {
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         if (!file.canRead()){
             return Response.status(Response.Status.BAD_REQUEST.getStatusCode(), "File cannot be read").build();
         }
@@ -92,7 +86,7 @@ public class CardResource {
                     cards.add(new Card(Language.ENGLISH, Quality.NEAR_MINT, authenticatedUser, cardReference));
                 }
                 Card.persist(cards);
-            }           
+            }
             scanner.close();
         } catch (FileNotFoundException e){
             return Response.status(Response.Status.BAD_REQUEST.getStatusCode(), "File not found").build();
@@ -102,28 +96,24 @@ public class CardResource {
 
     @POST
     @Transactional
-    @RolesAllowed("user")
     @Path("/borrowable")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response findBorrowableCards(@Context SecurityContext ctx, List<CardInput> cardsInput){
-        User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
+    public Response findBorrowableCards(List<CardInput> cardsInput){
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         List<BorrowableCardDto> cards = Card.findBorrowableCards(cardsInput, authenticatedUser);
         return Response.ok(cards).build();
     }
 
     @DELETE
     @Path("/{cardId}")
-    @RolesAllowed("user")
     @Transactional
-    public Response deleteDeck(@Context SecurityContext ctx, Long cardId) {
-        if (ctx.getUserPrincipal() == null) {
-            return Response.status(Response.Status.UNAUTHORIZED).build();
-        }
+    public Response deleteCard(Long cardId) {
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         Card found = Card.findById(cardId);
         if (found == null){
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        if (found.owner.id != Long.parseLong(ctx.getUserPrincipal().getName())){
+        if (found.owner.id != authenticatedUser.id){
             return Response.status(Response.Status.FORBIDDEN).build();
         }
         Card.deleteById(cardId);

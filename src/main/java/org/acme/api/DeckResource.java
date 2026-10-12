@@ -7,8 +7,11 @@ import org.acme.domain.Card;
 import org.acme.domain.Deck;
 import org.acme.domain.User;
 import org.acme.dto.DeckDto;
+import org.acme.input.DeckInput;
 
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -22,14 +25,17 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
 @Path("/decks")
+@RolesAllowed("user")
 public class DeckResource {
+
+    @Inject
+    SecurityIdentity identity;
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
-    @RolesAllowed("user")
-    public Response decks(@Context SecurityContext ctx) {
-        User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
+    public Response decks() {
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         List<Deck> decks = Deck.findDecksByUserId(authenticatedUser);
         return Response.ok(decks).build();
     }
@@ -37,11 +43,13 @@ public class DeckResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
-    @Path("/{id}")
-    @RolesAllowed("user")
-    public Response deck(@Context SecurityContext ctx, String id) {
-        User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
-        Deck deck = Deck.findById(id);
+    @Path("/{deckId}")
+    public Response deck(@Context SecurityContext ctx, String deckId) {
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
+        Deck deck = Deck.findById(deckId);
+        if (deck == null){
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
         if (authenticatedUser.id != deck.owner.id) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
@@ -53,21 +61,27 @@ public class DeckResource {
     @POST
     @Transactional
     @Consumes(MediaType.APPLICATION_JSON)
-    @RolesAllowed("user")
-    public Response createDeck(@Context SecurityContext ctx, Deck myDeck) {
-        User authenticatedUser = User.findById(Long.parseLong(ctx.getUserPrincipal().getName()));
-        myDeck.owner = authenticatedUser;
-        myDeck.persist();
-        return Response.created(URI.create("/decks/"+myDeck.id)).build();
+    public Response createDeck(@Context SecurityContext ctx, DeckInput deckInput) {
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
+        Deck deck = new Deck();
+        deck.owner = authenticatedUser;
+        deck.name = deckInput.name;
+        deck.cards = deckInput.cards.stream().map(cardInput -> Card.inputToCard(cardInput, authenticatedUser)).toList();
+        deck.persist();
+        return Response.created(URI.create("/decks/"+deck.id)).build();
     }
 
     @DELETE
     @Path("/{deckId}")
     @Transactional
     public Response deleteDeck(Long deckId) {
-        Deck found = Deck.findById(deckId);
-        if (found == null){
+        User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
+        Deck deck = Deck.findById(deckId);
+        if (deck == null){
             return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        if (deck.owner.id != authenticatedUser.id){
+            return Response.status(Response.Status.FORBIDDEN).build();
         }
         Deck.deleteById(deckId);
         return Response.noContent().build();

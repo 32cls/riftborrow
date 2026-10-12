@@ -14,6 +14,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
+import jakarta.ws.rs.NotFoundException;
 
 @Entity
 @NamedQueries({
@@ -62,10 +63,19 @@ public class Card extends PanacheEntity {
 
     public static List<BorrowableCardDto> findBorrowableCards(List<CardInput> cards, User user){
         List<BorrowableCardDto> borrowableCards = cards.stream().map(cardInput -> {
-            user.location.setSRID(4326);
-            BorrowableCardDto bCard = find("#Card.findBorrowableCards", Map.of("name", cardInput.name, "language", cardInput.language, "quality", cardInput.quality, "id", user.id, "location", user.location)).project(BorrowableCardDto.class).firstResult();
+            BorrowableCardDto bCard = find("#Card.findBorrowableCards", Map.of("name", cardInput.name, "language", cardInput.language, "quality", cardInput.quality, "id", user.id, "location", user.getLocation())).project(BorrowableCardDto.class).firstResult();
             return bCard;
         }).toList();
         return borrowableCards;
+    }
+
+    public static Card inputToCard(CardInput input, User user) {
+        CardReference cardReference = CardReference.findByName(input.name);
+        if (cardReference == null) {
+            throw new NotFoundException();
+        }
+        Card card = new Card(input.language, input.quality, user, cardReference);
+        card.persist();
+        return card;
     }
 }
