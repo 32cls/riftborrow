@@ -6,9 +6,6 @@ import java.util.Map;
 import org.acme.dto.BorrowableCardDto;
 import org.acme.input.CardInput;
 
-import com.fasterxml.jackson.annotation.JsonIdentityInfo;
-import com.fasterxml.jackson.annotation.ObjectIdGenerators;
-
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
@@ -20,9 +17,6 @@ import jakarta.ws.rs.NotFoundException;
 @NamedQueries({
     @NamedQuery(name = "Card.findBorrowableCards", query = "SELECT c.id, cr.name, cr.set, c.quality, c.owner.username, cr.riftboundId, cr.imageUrl, distance_meters(:location, u.location) as dist FROM Card c INNER JOIN User u ON u.id = c.owner.id INNER JOIN CardReference cr ON c.cardReference.id = cr.id WHERE cr.name LIKE :name AND c.language = :language AND c.quality <= :quality AND c.isBorrowed IS FALSE AND u.id <> :id ORDER BY dist ASC LIMIT 30"),
 })
-@JsonIdentityInfo(
-  generator = ObjectIdGenerators.PropertyGenerator.class,
-  property = "id")
 public class Card extends PanacheEntity {
 
     public enum Language {

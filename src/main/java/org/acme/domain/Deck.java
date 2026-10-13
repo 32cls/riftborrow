@@ -31,7 +31,7 @@ public class Deck extends PanacheEntity {
     }
 
     public static DeckDto mapDeckToDto(Deck deck, List<Card> missingCards){
-        Double completion = (double) missingCards.size() / (double) deck.cards.size();
+        Double completion = missingCards.isEmpty() ? 100 : 100 - (((double) missingCards.size() / (double) deck.cards.size()) * 100);
         return new DeckDto(deck.id, deck.owner.id, deck.cards, missingCards, completion, deck.createdAt, deck.updatedAt);
     }
 

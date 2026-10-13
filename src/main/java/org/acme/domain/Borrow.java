@@ -24,9 +24,9 @@ public class Borrow extends PanacheEntity {
     public User borrower;
     @OneToMany
     public List<Card> cards;
-    
+
     public boolean returned = false;
-    
+
     @CreationTimestamp
     private Instant createdAt;
     @UpdateTimestamp
@@ -68,13 +68,18 @@ public class Borrow extends PanacheEntity {
         }).toList();
     }
 
+    public static BorrowDto mapBorrowingToDto(Borrow borrow) {
+        return new BorrowDto(
+                borrow.id,
+                borrow.owner.id, borrow.owner.username,
+                borrow.borrower.id, borrow.borrower.username,
+                borrow.cards.stream().map(c -> c.id).toList(),
+                borrow.returned,
+                borrow.getCreatedAt(), borrow.getUpdatedAt());
+    }
+
     public static List<BorrowDto> mapBorrowingsToDto(List<Borrow> borrowings) {
-        return borrowings.stream().map(b -> new BorrowDto(
-                b.id,
-                b.owner.id, b.owner.username,
-                b.borrower.id, b.borrower.username,
-                b.cards.stream().map(c -> c.id).toList(),
-                b.getCreatedAt(), b.getUpdatedAt())).toList();
+        return borrowings.stream().map(Borrow::mapBorrowingToDto).toList();
     }
 
 }

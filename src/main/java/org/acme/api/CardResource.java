@@ -28,6 +28,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -100,6 +101,9 @@ public class CardResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Response findBorrowableCards(List<CardInput> cardsInput){
         User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
+        if (authenticatedUser.getLocation() == null) {
+            return Response.status(422).build();
+        }
         List<BorrowableCardDto> cards = Card.findBorrowableCards(cardsInput, authenticatedUser);
         return Response.ok(cards).build();
     }
@@ -107,7 +111,7 @@ public class CardResource {
     @DELETE
     @Path("/{cardId}")
     @Transactional
-    public Response deleteCard(Long cardId) {
+    public Response deleteCard(@PathParam("cardId") Long cardId) {
         User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         Card found = Card.findById(cardId);
         if (found == null){

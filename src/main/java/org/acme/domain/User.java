@@ -16,7 +16,6 @@ import org.locationtech.jts.geom.PrecisionModel;
 
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 
 import io.quarkus.security.jpa.Password;
@@ -41,8 +40,10 @@ public class User extends PanacheEntity {
     @Column(unique=true)
     public String discordId;
 
+    @JsonIgnore
     public String issuer;
 
+    @JsonIgnore
     @Password
     public String password;
 
@@ -50,16 +51,15 @@ public class User extends PanacheEntity {
     public String role;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "owner")
-    @JsonManagedReference
     public List<Card> inventory;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "borrower")
-    @JsonManagedReference
     public List<Card> borrowing;
 
     @JsonIgnore
     private Point location;
 
+    @JsonIgnore
     public Point getLocation() {
 		return location;
 	}

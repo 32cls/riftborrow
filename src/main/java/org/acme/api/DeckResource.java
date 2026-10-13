@@ -9,6 +9,8 @@ import org.acme.domain.User;
 import org.acme.dto.DeckDto;
 import org.acme.input.DeckInput;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -18,6 +20,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -31,20 +34,25 @@ public class DeckResource {
     @Inject
     SecurityIdentity identity;
 
+    @Inject
+    ObjectMapper objectMapper;
+
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
-    public Response decks() {
+    public Response decks() throws JsonProcessingException {
         User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         List<Deck> decks = Deck.findDecksByUserId(authenticatedUser);
-        return Response.ok(decks).build();
+        // Serialize while the Hibernate session is still open: JAX-RS writes the body
+        // after the transaction commits, by which time lazy references can no longer be loaded.
+        return Response.ok(objectMapper.writeValueAsString(decks)).type(MediaType.APPLICATION_JSON).build();
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
     @Path("/{deckId}")
-    public Response deck(@Context SecurityContext ctx, String deckId) {
+    public Response deck(@Context SecurityContext ctx, @PathParam("deckId") String deckId) throws JsonProcessingException {
         User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         Deck deck = Deck.findById(deckId);
         if (deck == null){
@@ -55,7 +63,9 @@ public class DeckResource {
         }
         List<Card> missingCards = deck.cards.stream().filter(card -> !authenticatedUser.inventory.contains(card)).toList();
         DeckDto deckDto = Deck.mapDeckToDto(deck, missingCards);
-        return Response.ok(deckDto).build();
+        // Serialize while the Hibernate session is still open: JAX-RS writes the body
+        // after the transaction commits, by which time lazy references can no longer be loaded.
+        return Response.ok(objectMapper.writeValueAsString(deckDto)).type(MediaType.APPLICATION_JSON).build();
     }
 
     @POST
@@ -74,7 +84,7 @@ public class DeckResource {
     @DELETE
     @Path("/{deckId}")
     @Transactional
-    public Response deleteDeck(Long deckId) {
+    public Response deleteDeck(@PathParam("deckId") Long deckId) {
         User authenticatedUser = User.findById(identity.<Long>getAttribute("userId"));
         Deck deck = Deck.findById(deckId);
         if (deck == null){
