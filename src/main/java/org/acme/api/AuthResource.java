@@ -2,6 +2,7 @@ package org.acme.api;
 
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -153,12 +154,23 @@ public class AuthResource {
     private NewCookie returnToCookie(String value, int maxAgeSeconds) {
         // Secure + HttpOnly; the value is only ever read by the API (same-origin), so the
         // default SameSite (Lax) is sufficient and avoids the "None requires Secure" coupling.
-        return new NewCookie(RETURN_TO_COOKIE, value, "/", null, null, maxAgeSeconds, true, true);
+        return new NewCookie.Builder(RETURN_TO_COOKIE)
+                                    .value(value)
+                                    .path("/")
+                                    .maxAge(maxAgeSeconds)
+                                    .secure(true)
+                                    .httpOnly(true)
+                                    .build();
     }
 
     private static NewCookie clearCookie(String name) {
         // maxAge 0 expires the cookie; Secure + HttpOnly to match how the originals are set.
-        return new NewCookie(name, "", "/", null, null, 0, true, true);
+        return new NewCookie.Builder(name)
+                                    .path("/")
+                                    .maxAge(0)
+                                    .secure(true)
+                                    .httpOnly(true)
+                                    .build();
     }
 
     private static String encode(String value) {
@@ -181,7 +193,7 @@ public class AuthResource {
             return null;
         }
         try {
-            URL url = new URL(redirect);
+            URL url = new URI(redirect).toURL();
             String origin = url.getProtocol() + "://" + url.getHost()
                     + (url.getPort() == -1 ? "" : ":" + url.getPort());
             for (String allowed : allowedOrigins()) {
@@ -189,7 +201,7 @@ public class AuthResource {
                     return redirect;
                 }
             }
-        } catch (MalformedURLException e) {
+        } catch (URISyntaxException | MalformedURLException e) {
             return null;
         }
         return null;
