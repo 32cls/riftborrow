@@ -1,14 +1,14 @@
-    create extension postgis;
+    create extension if not exists postgis;
     
-    create sequence app_users_SEQ start with 1 increment by 50;
+    create sequence app_users_SEQ start with 1 increment by 1;
 
-    create sequence Borrow_SEQ start with 1 increment by 50;
+    create sequence Borrow_SEQ start with 1 increment by 1;
 
-    create sequence Card_SEQ start with 1 increment by 50;
+    create sequence Card_SEQ start with 1 increment by 1;
 
-    create sequence CardReference_SEQ start with 1 increment by 50;
+    create sequence CardReference_SEQ start with 1 increment by 1;
 
-    create sequence Deck_SEQ start with 1 increment by 50;
+    create sequence Deck_SEQ start with 1 increment by 1;
 
     create table app_users (
         id bigint not null,
