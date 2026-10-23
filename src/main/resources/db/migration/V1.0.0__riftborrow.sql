@@ -1,4 +1,5 @@
-
+    create extension postgis;
+    
     create sequence app_users_SEQ start with 1 increment by 50;
 
     create sequence Borrow_SEQ start with 1 increment by 50;
