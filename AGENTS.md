@@ -27,11 +27,11 @@
 - Auth is a **work-in-progress migration to Discord OIDC** (`quarkus-oidc`, `quarkus.oidc.provider=discord`, userinfo required; git log: "moving auth to discord (doesn't work)"). The old smallrye-jwt cookie flow is gone. `RegisteredUserAugmentor` (new, untracked) auto-creates the `app_users` row on first login (JWT issuer + sub + username) and adds a `userId` attribute (Caffeine-cached 10 min).
 - Current-user resolution has two paths — keep both working: resources use `userInfo.getString("id")` → `User.findByDiscordId(...)`; `UserResource` uses `identity.getAttribute("userId")` (set by the augmentor). All endpoints are `@RolesAllowed("user")`; the role comes from `app_users.role` (security-jpa `@UserDefinition`).
 - Domain (Panache): `Card` (owner/borrower `User`, `CardReference`), `Deck` (owner, cards), `Borrow` (owner, borrower, cards). `CardReference` is the card catalog.
-- `CardReference` bulk-import: a `@Scheduled` cron (every 10 min, `CardReferenceUpdaterBean`) pages `https://api.riftcodex.com/cards` **only when the table is empty** — and that external API has been flaky (git log: "riftcodex down").
-- `CardReference` `@PostPersist`/`@PostUpdate` push to the Meilisearch index `card_references` — so **any CardReference persist fails if Meilisearch is down** (including the scheduler import).
+- `CardReference` import: `CardReferenceUpdaterBean` runs 10s after boot then every 10 min, pages `https://api.riftcodex.com/cards` (~20s per page, 15 pages — slow, and historically flaky) and inserts cards missing by `riftboundId`, one transaction per page (never wrap it in one `@Transactional`: the 60s tx timeout kills it).
+- Meilisearch index `card_references` is only written by the same job (`CardReference.reindexAll()` when the index doc count differs from the table). No entity listeners, so persists don't depend on Meilisearch.
 - Geo: `User.location` is a PostGIS point (SRID 4326); `Card.findBorrowableCards` uses the custom `distance_meters` SQM function from `PostgisDistanceFunctionContributor`, registered via `src/main/resources/META-INF/services` (not via a Quarkus extension).
 - `import.sql` seeds 1 user + 1 cardreference + 2 cards and resets sequences. Quarkus auto-loads it **in dev and test modes, not in prod** (verified in the 3.39.1 config metadata). The seeded row also keeps the scheduler from re-importing in dev/test.
-- Card lookups are exact-name matches. Import (`CardReference.fromCardReferenceDto`) and the bulk list upload normalize names (strip `,` and ` -`), but `CardResource.addCard` does not — keep the two sides in sync.
+- Card lookups are exact-name matches on names normalized by `CardReference.normalizeName` (strips `,` and ` -`); every name lookup must go through it.
 
 ## Gotchas
 

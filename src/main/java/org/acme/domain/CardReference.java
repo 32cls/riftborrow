@@ -8,8 +8,6 @@ import com.meilisearch.sdk.Index;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.enterprise.inject.spi.CDI;
 import jakarta.persistence.Entity;
-import jakarta.persistence.PostPersist;
-import jakarta.persistence.PostUpdate;
 
 import org.acme.external.CardReferenceDto;
 import org.json.JSONArray;
@@ -29,16 +27,6 @@ public class CardReference extends PanacheEntity {
     public String imageUrl;
 
     public boolean isNew;
-
-    @PostPersist
-    protected void onCreate() {
-        updateIndexForCard();
-    }
-
-    @PostUpdate
-    protected void onUpdate() {
-        updateIndexForCard();
-    }
 
     public CardReference(){
     }
@@ -65,8 +53,8 @@ public class CardReference extends PanacheEntity {
         return name == null ? null : name.strip().replace(",", "").replace(" -", "");
     }
 
-    // Pushes every CardReference to Meilisearch in one call. Needed for rows that never went
-    // through @PostPersist (SQL seeds) or when the Meilisearch data was wiped.
+    // Pushes every CardReference to Meilisearch in one call. The index is maintained only through
+    // this (CardReferenceUpdaterBean), so a persist never depends on Meilisearch being up.
     public static void reindexAll() {
         List<CardReference> all = listAll();
         JSONArray documents = new JSONArray();
@@ -78,12 +66,5 @@ public class CardReference extends PanacheEntity {
 
     private JSONObject toIndexDocument() {
         return new JSONObject().put("id", this.id.toString()).put("riftbound_identifier", this.riftboundId).put("name", this.name).put("image_url", this.imageUrl);
-    }
-
-    private void updateIndexForCard(){
-        Client client = CDI.current().select(Client.class).get();
-        Index index = client.index(INDEX);
-        index.addDocuments(new JSONArray().put(toIndexDocument()).toString(), "id");
-        index.updateFilterableAttributesSettings(new String[]{"name", "riftbound_identifier"});
     }
 }
