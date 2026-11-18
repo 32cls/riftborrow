@@ -64,7 +64,7 @@ public class Card extends PanacheEntity {
     }
 
     public static Card inputToCard(CardInput input, User user) {
-        CardReference cardReference = CardReference.findByName(input.name);
+        CardReference cardReference = CardReference.findByName(CardReference.normalizeName(input.name));
         if (cardReference == null) {
             throw new NotFoundException();
         }

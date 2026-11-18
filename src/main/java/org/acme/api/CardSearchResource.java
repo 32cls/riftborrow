@@ -3,6 +3,7 @@ package org.acme.api;
 import java.util.HashMap;
 import java.util.List;
 
+import org.acme.domain.CardReference;
 import org.acme.dto.CardSearchDto;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
@@ -33,7 +34,7 @@ public class CardSearchResource {
 
     private static final Logger LOG = Logger.getLogger(CardSearchResource.class);
 
-    static final String INDEX = "card_references";
+    static final String INDEX = CardReference.INDEX;
     static final int DEFAULT_LIMIT = 10;
     static final int MAX_LIMIT = 50;
     static final int MAX_QUERY_LENGTH = 100;

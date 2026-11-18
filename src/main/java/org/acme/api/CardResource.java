@@ -81,7 +81,7 @@ public class CardResource {
                 String line = scanner.nextLine();
                 String[] parsedLine = line.split(" ", 2);
                 int quantity = Integer.parseInt(parsedLine[0]);
-                String parsedCardName = parsedLine[1].split(" \\(", 2)[0].replace(",", "").replace(" -", "");
+                String parsedCardName = CardReference.normalizeName(parsedLine[1].split(" \\(", 2)[0]);
                 CardReference cardReference = CardReference.findByName(parsedCardName);
                 for (int i = 0; i < quantity; i++) {
                     cards.add(new Card(Language.ENGLISH, Quality.NEAR_MINT, authenticatedUser, cardReference));
